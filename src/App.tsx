@@ -9,7 +9,7 @@ import Receipts from "./pages/Receipts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
-// Trigger rebuild to load environment variables
+// Force rebuild to load environment variables from .env
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
