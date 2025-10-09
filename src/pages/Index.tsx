@@ -1,3 +1,6 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Navigation } from "@/components/Navigation";
 import { MetricCard } from "@/components/MetricCard";
 import { DataCategoryCard } from "@/components/DataCategoryCard";
@@ -10,11 +13,33 @@ import {
   TrendingUp, 
   Zap,
   Target,
-  Moon
+  Moon,
+  Receipt
 } from "lucide-react";
 import heroBg from "@/assets/hero-bg.jpg";
+import { User } from "@supabase/supabase-js";
 
 const Index = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -43,15 +68,24 @@ const Index = () => {
               Gather, analyze, and understand every aspect of your existence. 
               Transform data into wisdom, numbers into enlightenment.
             </p>
-            <div className="flex gap-4 justify-center">
-              <Button size="lg" className="bg-primary hover:bg-primary-glow text-background font-medium border-glow">
-                <Zap className="w-4 h-4 mr-2" />
-                Start Tracking
-              </Button>
-              <Button size="lg" variant="outline" className="border-primary text-primary hover:bg-primary/10">
-                View Demo
-              </Button>
-            </div>
+            {!user ? (
+              <div className="flex gap-4 justify-center">
+                <Button onClick={() => navigate("/auth")} size="lg" className="bg-primary hover:bg-primary-glow text-background font-medium border-glow">
+                  <Zap className="w-4 h-4 mr-2" />
+                  Get Started
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-4 justify-center">
+                <Button onClick={() => navigate("/receipts")} size="lg" className="bg-primary hover:bg-primary-glow text-background font-medium border-glow">
+                  <Receipt className="w-4 h-4 mr-2" />
+                  Scan Receipt
+                </Button>
+                <Button onClick={handleSignOut} size="lg" variant="outline" className="border-primary text-primary hover:bg-primary/10">
+                  Sign Out
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -98,6 +132,12 @@ const Index = () => {
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold mb-8 font-orbitron text-center">Data Streams</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <DataCategoryCard
+              title="Groceries"
+              description="Track grocery spending with AI-powered receipt scanning"
+              icon={Receipt}
+              dataPoints={0}
+            />
             <DataCategoryCard
               title="Physical Health"
               description="Track movement, vitals, and physical wellness metrics"
