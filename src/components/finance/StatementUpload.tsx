@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Upload, FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { showErrorToast, showSuccessToast } from "@/lib/errorHandling";
+import { MAX_FILE_SIZE, ACCEPTED_FILE_TYPE, STATEMENT_STATUS } from "@/constants/finance";
 
 export const StatementUpload = () => {
   const [uploading, setUploading] = useState(false);
@@ -16,21 +18,15 @@ export const StatementUpload = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (file.type !== "application/pdf") {
-      toast({
-        title: "Invalid file type",
-        description: "Please upload a PDF file",
-        variant: "destructive",
-      });
+    // Validate file type
+    if (file.type !== ACCEPTED_FILE_TYPE) {
+      showErrorToast(toast, new Error("Please upload a PDF file"), "Invalid file type");
       return;
     }
 
-    if (file.size > 20 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Maximum file size is 20MB",
-        variant: "destructive",
-      });
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      showErrorToast(toast, new Error("Maximum file size is 20MB"), "File too large");
       return;
     }
 
@@ -61,7 +57,7 @@ export const StatementUpload = () => {
           statement_date: new Date().toISOString().split('T')[0],
           card_number: "****",
           total_amount: 0,
-          status: "processing",
+          status: STATEMENT_STATUS.PROCESSING,
         })
         .select()
         .single();
@@ -85,20 +81,13 @@ export const StatementUpload = () => {
       setProgress(100);
       setProcessing(false);
 
-      toast({
-        title: "Success!",
-        description: "Statement processed successfully",
-      });
+      showSuccessToast(toast, "Success!", "Statement processed successfully");
 
       // Reload the page to show new data
       window.location.reload();
     } catch (error: any) {
       console.error("Error uploading statement:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to process statement",
-        variant: "destructive",
-      });
+      showErrorToast(toast, error, "Failed to process statement");
       setUploading(false);
       setProcessing(false);
     }
@@ -122,7 +111,7 @@ export const StatementUpload = () => {
               type="file"
               id="statement-upload"
               className="hidden"
-              accept="application/pdf"
+              accept={ACCEPTED_FILE_TYPE}
               onChange={handleFileUpload}
               disabled={uploading || processing}
             />
