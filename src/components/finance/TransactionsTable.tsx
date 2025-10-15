@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Receipt, Search, X, Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "@/hooks/use-toast";
 
 interface Transaction {
   id: string;
@@ -37,14 +38,57 @@ export const TransactionsTable = () => {
     categories: [] as string[],
     currencies: [] as string[],
   });
+  
+  const [availableCategories, setAvailableCategories] = useState<Array<{
+    id: string;
+    name: string;
+    icon: string;
+    color: string;
+  }>>([]);
 
   useEffect(() => {
     fetchFilterOptions();
+    fetchCategories();
   }, []);
 
   useEffect(() => {
     fetchTransactions();
   }, [filters]);
+
+  const fetchCategories = async () => {
+    const { data, error } = await supabase
+      .from("categories")
+      .select("*")
+      .order("name");
+    
+    if (!error && data) {
+      setAvailableCategories(data);
+    }
+  };
+
+  const updateTransactionCategory = async (transactionId: string, newCategory: string) => {
+    const { error } = await supabase
+      .from("transactions")
+      .update({ category: newCategory })
+      .eq("id", transactionId);
+    
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update category",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    toast({
+      title: "Success",
+      description: "Category updated successfully",
+    });
+    
+    fetchTransactions();
+    fetchFilterOptions();
+  };
 
   const fetchFilterOptions = async () => {
     try {
@@ -267,7 +311,31 @@ export const TransactionsTable = () => {
                     </TableCell>
                     <TableCell>{transaction.merchant_name}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{transaction.category}</Badge>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Badge 
+                            variant="outline" 
+                            className="cursor-pointer hover:bg-accent transition-colors"
+                          >
+                            {transaction.category}
+                          </Badge>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-2">
+                          <div className="grid gap-1">
+                            {availableCategories.map((cat) => (
+                              <Button
+                                key={cat.id}
+                                variant="ghost"
+                                className="justify-start"
+                                onClick={() => updateTransactionCategory(transaction.id, cat.name)}
+                              >
+                                <span className="mr-2">{cat.icon}</span>
+                                {cat.name}
+                              </Button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </TableCell>
                     <TableCell className="text-right">
                       {transaction.original_amount.toFixed(2)} {transaction.original_currency}
