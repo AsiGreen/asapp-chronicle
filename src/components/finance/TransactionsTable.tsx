@@ -327,12 +327,17 @@ export const TransactionsTable = () => {
                     <TableCell>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Badge 
-                            variant="outline" 
-                            className="cursor-pointer hover:bg-accent transition-colors"
+                          <Button 
+                            variant="ghost" 
+                            className="p-0 h-auto font-normal hover:bg-transparent"
                           >
-                            {transaction.category}
-                          </Badge>
+                            <Badge 
+                              variant="outline" 
+                              className="cursor-pointer hover:bg-accent transition-colors"
+                            >
+                              {transaction.category}
+                            </Badge>
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-56 p-2 bg-popover z-50">
                           <div className="grid gap-1 max-h-64 overflow-y-auto">
