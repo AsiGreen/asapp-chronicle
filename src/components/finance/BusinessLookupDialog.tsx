@@ -2,7 +2,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Transaction, BusinessLookupResult } from "@/types/finance";
 import { BusinessInfoCard } from "./BusinessInfoCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useEffect } from "react";
 
 interface BusinessLookupDialogProps {
   open: boolean;
