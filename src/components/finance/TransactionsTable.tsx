@@ -2,25 +2,32 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Receipt } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Receipt, Search, X } from "lucide-react";
 import { formatDate, formatCurrency } from "@/lib/financeUtils";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useCategories } from "@/hooks/useCategories";
 import { useUpdateCategory } from "@/hooks/useUpdateCategory";
 import { useFilterOptions } from "@/hooks/useFilterOptions";
+import { useBusinessLookup } from "@/hooks/useBusinessLookup";
 import { TransactionFilters } from "./TransactionFilters";
 import { CategorySelector } from "./CategorySelector";
 import { TransactionTableSkeleton } from "./LoadingStates";
+import { BusinessLookupDialog } from "./BusinessLookupDialog";
 import { DEFAULT_FILTERS } from "@/constants/finance";
 import { FilterState } from "@/types/finance";
 
 export const TransactionsTable = () => {
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
+  const [showLookupDialog, setShowLookupDialog] = useState(false);
   
   const { transactions, loading: transactionsLoading, refetch: refetchTransactions } = useTransactions(filters);
   const { categories } = useCategories();
   const { filterOptions, refetch: refetchFilterOptions } = useFilterOptions();
   const { updateCategory } = useUpdateCategory();
+  const { lookupMerchants, results } = useBusinessLookup();
 
   const handleCategoryUpdate = async (transactionId: string, newCategory: string) => {
     await updateCategory(transactionId, newCategory, () => {
@@ -41,6 +48,41 @@ export const TransactionsTable = () => {
     !!filters.dateTo || 
     filters.merchantSearch !== "";
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedTransactions(transactions.map(t => t.id));
+    } else {
+      setSelectedTransactions([]);
+    }
+  };
+
+  const handleSelectTransaction = (transactionId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedTransactions(prev => [...prev, transactionId]);
+    } else {
+      setSelectedTransactions(prev => prev.filter(id => id !== transactionId));
+    }
+  };
+
+  const handleLookupBusiness = async () => {
+    const selectedTxns = transactions.filter(t => selectedTransactions.includes(t.id));
+    await lookupMerchants(selectedTxns);
+    setShowLookupDialog(true);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedTransactions([]);
+  };
+
+  const handleCategoryUpdateFromLookup = async (transactionId: string, newCategory: string) => {
+    await handleCategoryUpdate(transactionId, newCategory);
+    refetchTransactions();
+    refetchFilterOptions();
+  };
+
+  const allSelected = transactions.length > 0 && selectedTransactions.length === transactions.length;
+  const someSelected = selectedTransactions.length > 0 && !allSelected;
+
   if (transactionsLoading) {
     return <TransactionTableSkeleton />;
   }
@@ -57,6 +99,24 @@ export const TransactionsTable = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {selectedTransactions.length > 0 && (
+          <div className="flex items-center justify-between p-3 bg-muted rounded-lg border">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{selectedTransactions.length} selected</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button onClick={handleLookupBusiness} size="sm" className="gap-2">
+                <Search className="w-4 h-4" />
+                Look Up Business
+              </Button>
+              <Button onClick={handleClearSelection} size="sm" variant="ghost" className="gap-2">
+                <X className="w-4 h-4" />
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
         <TransactionFilters
           filters={filters}
           onFilterChange={setFilters}
@@ -75,6 +135,14 @@ export const TransactionsTable = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Select all transactions"
+                      className={someSelected ? "data-[state=checked]:bg-primary" : ""}
+                    />
+                  </TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Merchant</TableHead>
                   <TableHead>Category</TableHead>
@@ -86,6 +154,15 @@ export const TransactionsTable = () => {
               <TableBody>
                 {transactions.map((transaction) => (
                   <TableRow key={transaction.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedTransactions.includes(transaction.id)}
+                        onCheckedChange={(checked) => 
+                          handleSelectTransaction(transaction.id, checked as boolean)
+                        }
+                        aria-label={`Select ${transaction.merchant_name}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">
                       {formatDate(transaction.transaction_date)}
                     </TableCell>
@@ -117,6 +194,14 @@ export const TransactionsTable = () => {
           </div>
         )}
       </CardContent>
+
+      <BusinessLookupDialog
+        open={showLookupDialog}
+        onClose={() => setShowLookupDialog(false)}
+        transactions={transactions.filter(t => selectedTransactions.includes(t.id))}
+        results={results}
+        onCategoryUpdate={handleCategoryUpdateFromLookup}
+      />
     </Card>
   );
 };
