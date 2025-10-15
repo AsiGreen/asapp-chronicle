@@ -10,11 +10,15 @@ import {
   TrendingUp, 
   Zap,
   Target,
-  Moon
+  Moon,
+  Receipt
 } from "lucide-react";
 import heroBg from "@/assets/hero-bg.jpg";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -134,6 +138,30 @@ const Index = () => {
               icon={Target}
               dataPoints={1847}
             />
+          </div>
+        </div>
+      </section>
+
+      {/* Finance Section */}
+      <section className="py-16 px-4 bg-gradient-to-br from-primary/5 to-background">
+        <div className="container mx-auto">
+          <div className="max-w-2xl mx-auto text-center">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center mx-auto mb-6">
+              <Receipt className="w-8 h-8 text-background" />
+            </div>
+            <h2 className="text-4xl font-bold font-orbitron mb-4">Finance Tracker</h2>
+            <p className="text-lg text-muted-foreground mb-8">
+              Upload and analyze your credit card statements with AI-powered transaction extraction. 
+              Categorize spending, track trends, and gain insights into your financial patterns.
+            </p>
+            <Button
+              size="lg"
+              onClick={() => navigate("/auth")}
+              className="bg-primary hover:bg-primary-glow text-background font-medium border-glow"
+            >
+              <Receipt className="w-4 h-4 mr-2" />
+              Get Started
+            </Button>
           </div>
         </div>
       </section>
