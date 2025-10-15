@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { getDocument } from 'https://esm.sh/pdfjs-serverless@0.3.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,41 +37,64 @@ serve(async (req) => {
       throw downloadError;
     }
 
-    // Convert file to base64
+    // Extract text from PDF
     const arrayBuffer = await fileData.arrayBuffer();
-    // Convert file to base64 in chunks to avoid stack overflow
     const uint8Array = new Uint8Array(arrayBuffer);
-    const chunkSize = 0x8000; // 32KB chunks
-    let binaryString = '';
+    const pdfDocument = await getDocument({
+      data: uint8Array,
+      useSystemFonts: true,
+    }).promise;
 
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-      binaryString += String.fromCharCode(...chunk);
+    let fullText = '';
+    const numPages = pdfDocument.numPages;
+    console.log('PDF has', numPages, 'pages');
+
+    // Extract text from all pages
+    for (let i = 1; i <= numPages; i++) {
+      const page = await pdfDocument.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(' ');
+      fullText += pageText + '\n\n';
     }
 
-    const base64 = btoa(binaryString);
+    console.log('Extracted text length:', fullText.length);
 
     // Call Lovable AI to extract transaction data
-    const prompt = `You are a financial transaction parser. Extract ALL transactions from this credit card statement.
+    const prompt = `You are a financial transaction parser. Extract ALL transactions from this credit card statement TEXT.
 The statement is in Hebrew and contains international transactions in multiple currencies.
 
+IMPORTANT: The text is extracted from a PDF and may have:
+- Mixed Hebrew and English characters
+- Date formats: DD/MM/YYYY or DD/MM
+- Currency symbols: € (Euro), $ (USD), ₪ (ILS/Shekel)
+- Amounts with comma as thousands separator
+
 For each transaction extract:
-- Transaction date (format: YYYY-MM-DD)
-- Payment date (format: YYYY-MM-DD)
-- Merchant name (clean, standardized English name)
-- Original amount and currency (€, $, ₪, USD, EUR, ILS)
-- Exchange rate (if applicable, otherwise null)
-- Final amount in ILS (₪)
-- Transaction type (regular or refund - refunds have negative amounts)
-- Any fees
+- Transaction date (format: YYYY-MM-DD) - look for dates in format DD/MM
+- Payment date (format: YYYY-MM-DD) - look for "תאריך חיוב" or payment date
+- Merchant name (clean, standardized English name) - extract business names
+- Original amount and currency (look for €, $, ₪, USD, EUR, ILS, NIS)
+- Exchange rate (if applicable, otherwise null) - look for "שער"
+- Final amount in ILS (₪) - the rightmost amount column
+- Transaction type (regular or refund - refunds have negative amounts or marked with minus/credit)
+- Any fees - look for "עמלה"
 
 Suggested categories based on merchant names:
 Transportation, Accommodation, Shopping, Food & Dining, Services, Entertainment, Travel, Co-working, Health & Wellness, Technology, Other
 
 Extract the card information:
-- Last 4 digits of card number
-- Card type (e.g., Mastercard Platinum)
-- Statement date
+- Last 4 digits of card number (look for "****XXXX" or similar pattern)
+- Card type (e.g., Mastercard Platinum, Visa, etc.) - look near card number
+- Statement date (look for "תקופת חיוב" or statement period date)
+
+Common Hebrew terms:
+- תאריך עסקה = Transaction date
+- תאריך חיוב = Payment/Billing date  
+- בית עסק = Merchant/Business
+- סכום מקורי = Original amount
+- שער = Exchange rate
+- סכום לחיוב = Amount to charge
+- עמלה = Fee
 
 Return structured data with all transactions.`;
 
@@ -85,13 +109,7 @@ Return structured data with all transactions.`;
         messages: [
           {
             role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              {
-                type: 'image_url',
-                image_url: { url: `data:application/pdf;base64,${base64}` }
-              }
-            ]
+            content: `${prompt}\n\n--- CREDIT CARD STATEMENT TEXT ---\n${fullText}`
           }
         ],
         tools: [
