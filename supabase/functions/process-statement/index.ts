@@ -38,7 +38,17 @@ serve(async (req) => {
 
     // Convert file to base64
     const arrayBuffer = await fileData.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    // Convert file to base64 in chunks to avoid stack overflow
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const chunkSize = 0x8000; // 32KB chunks
+    let binaryString = '';
+
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+      binaryString += String.fromCharCode(...chunk);
+    }
+
+    const base64 = btoa(binaryString);
 
     // Call Lovable AI to extract transaction data
     const prompt = `You are a financial transaction parser. Extract ALL transactions from this credit card statement.
