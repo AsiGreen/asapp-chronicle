@@ -8,9 +8,23 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Receipt, Search, X, Calendar as CalendarIcon } from "lucide-react";
+import { Receipt, Search, X, Calendar as CalendarIcon, Hotel, Building, Film, UtensilsCrossed, Heart, MoreHorizontal, Briefcase, ShoppingBag, Laptop, Car, Plane } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
+
+const iconMap: Record<string, any> = {
+  Hotel,
+  Building,
+  Film,
+  UtensilsCrossed,
+  Heart,
+  MoreHorizontal,
+  Briefcase,
+  ShoppingBag,
+  Laptop,
+  Car,
+  Plane,
+};
 
 interface Transaction {
   id: string;
@@ -320,19 +334,22 @@ export const TransactionsTable = () => {
                             {transaction.category}
                           </Badge>
                         </PopoverTrigger>
-                        <PopoverContent className="w-56 p-2">
-                          <div className="grid gap-1">
-                            {availableCategories.map((cat) => (
-                              <Button
-                                key={cat.id}
-                                variant="ghost"
-                                className="justify-start"
-                                onClick={() => updateTransactionCategory(transaction.id, cat.name)}
-                              >
-                                <span className="mr-2">{cat.icon}</span>
-                                {cat.name}
-                              </Button>
-                            ))}
+                        <PopoverContent className="w-56 p-2 bg-popover z-50">
+                          <div className="grid gap-1 max-h-64 overflow-y-auto">
+                            {availableCategories.map((cat) => {
+                              const Icon = iconMap[cat.icon] || MoreHorizontal;
+                              return (
+                                <Button
+                                  key={cat.id}
+                                  variant="ghost"
+                                  className="justify-start"
+                                  onClick={() => updateTransactionCategory(transaction.id, cat.name)}
+                                >
+                                  <Icon className="mr-2 h-4 w-4" />
+                                  {cat.name}
+                                </Button>
+                              );
+                            })}
                           </div>
                         </PopoverContent>
                       </Popover>
