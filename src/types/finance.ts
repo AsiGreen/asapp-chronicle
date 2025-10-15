@@ -65,18 +65,3 @@ export interface FilterOptions {
   categories: string[];
   currencies: string[];
 }
-
-export interface BusinessLookupResult {
-  transactionId: string;
-  merchantName: string;
-  businessName: string;
-  businessType: string;
-  suggestedCategory: string;
-  currentCategory: string;
-  confidence: number;
-  description: string;
-  website?: string;
-  location?: string;
-  loading?: boolean;
-  error?: string;
-}

@@ -2,6 +2,3 @@ project_id = "gffjkhcaiyenqfazyjaq"
 
 [functions.process-statement]
 verify_jwt = true
-
-[functions.lookup-merchant]
-verify_jwt = true
