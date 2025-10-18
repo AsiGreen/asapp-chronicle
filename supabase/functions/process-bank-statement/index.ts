@@ -53,10 +53,16 @@ serve(async (req) => {
       fileContent = await fileData.text();
       transactions = await parseCSV(fileContent, statement.bank_name, lovableApiKey);
     } else {
-      // For PDF, convert to base64
+      // For PDF, convert to base64 in chunks to avoid stack overflow
       const arrayBuffer = await fileData.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
-      fileContent = btoa(String.fromCharCode(...uint8Array));
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+        binary += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      fileContent = btoa(binary);
       transactions = await parsePDF(fileContent, statement.bank_name, lovableApiKey);
     }
 
