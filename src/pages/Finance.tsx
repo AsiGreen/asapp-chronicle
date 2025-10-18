@@ -8,9 +8,20 @@ import { IncomeOutcomeReport } from "@/components/finance/IncomeOutcomeReport";
 import { FinancialInsights } from "@/components/finance/FinancialInsights";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut } from "lucide-react";
+import { LogOut, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Session } from "@supabase/supabase-js";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const Finance = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -50,6 +61,40 @@ const Finance = () => {
     navigate("/");
   };
 
+  const handleClearAllData = async () => {
+    try {
+      // Delete all transactions
+      const { error: transactionsError } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("user_id", session?.user.id);
+
+      if (transactionsError) throw transactionsError;
+
+      // Delete all bank statements
+      const { error: statementsError } = await supabase
+        .from("bank_statements")
+        .delete()
+        .eq("user_id", session?.user.id);
+
+      if (statementsError) throw statementsError;
+
+      toast({
+        title: "Data cleared",
+        description: "All your financial data has been deleted successfully.",
+      });
+
+      // Refresh the page to show empty state
+      window.location.reload();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to clear data",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -73,10 +118,38 @@ const Finance = () => {
               Upload and analyze your bank statements
             </p>
           </div>
-          <Button variant="outline" onClick={handleSignOut} className="gap-2">
-            <LogOut className="w-4 h-4" />
-            Sign Out
-          </Button>
+          <div className="flex gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="gap-2 text-destructive hover:text-destructive">
+                  <Trash2 className="w-4 h-4" />
+                  Clear All Data
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all your transactions and bank statements.
+                    This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleClearAllData}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
+                    Delete Everything
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <Button variant="outline" onClick={handleSignOut} className="gap-2">
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </Button>
+          </div>
         </div>
 
         <Tabs defaultValue="upload" className="space-y-6">
