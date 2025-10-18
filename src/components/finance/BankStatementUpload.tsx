@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,55 @@ export const BankStatementUpload = () => {
   const [uploading, setUploading] = useState(false);
   const [processingFiles, setProcessingFiles] = useState<ProcessingFile[]>([]);
   const { toast } = useToast();
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle real-time subscription updates
+  const handleRealtimeUpdate = useCallback((updatedStatement: any) => {
+    console.log('Real-time update received:', updatedStatement);
+    
+    setProcessingFiles(prev => {
+      const updated = prev.map(file => {
+        if (file.statementId === updatedStatement.id) {
+          console.log(`Updating file ${file.fileName} from status ${file.status} to ${updatedStatement.status}`);
+          
+          if (updatedStatement.status === 'completed') {
+            // Immediately show toast and update state
+            setTimeout(() => {
+              toast({
+                title: "Processing complete",
+                description: `${file.fileName} has been processed successfully.`,
+              });
+            }, 0);
+            
+            return {
+              ...file,
+              progress: 100,
+              status: 'completed' as const
+            };
+          } else if (updatedStatement.status === 'failed') {
+            setTimeout(() => {
+              toast({
+                title: "Processing failed",
+                description: `Failed to process ${file.fileName}`,
+                variant: "destructive",
+              });
+            }, 0);
+            
+            return {
+              ...file,
+              progress: 100,
+              status: 'failed' as const,
+              error: 'Processing failed'
+            };
+          }
+        }
+        return file;
+      });
+      
+      console.log('Updated processing files:', updated);
+      return updated;
+    });
+  }, [toast]);
 
   // Subscribe to real-time updates for bank statement processing
   useEffect(() => {
@@ -49,38 +98,7 @@ export const BankStatementUpload = () => {
             filter: `user_id=eq.${user.id}`
           },
           (payload: any) => {
-            const updatedStatement = payload.new;
-            
-            setProcessingFiles(prev => prev.map(file => {
-              if (file.statementId === updatedStatement.id) {
-                if (updatedStatement.status === 'completed') {
-                  toast({
-                    title: "Processing complete",
-                    description: `${file.fileName} has been processed successfully.`,
-                  });
-                  
-                  return {
-                    ...file,
-                    progress: 100,
-                    status: 'completed' as const
-                  };
-                } else if (updatedStatement.status === 'failed') {
-                  toast({
-                    title: "Processing failed",
-                    description: `Failed to process ${file.fileName}`,
-                    variant: "destructive",
-                  });
-                  
-                  return {
-                    ...file,
-                    progress: 100,
-                    status: 'failed' as const,
-                    error: 'Processing failed'
-                  };
-                }
-              }
-              return file;
-            }));
+            handleRealtimeUpdate(payload.new);
           }
         )
         .subscribe();
@@ -91,7 +109,73 @@ export const BankStatementUpload = () => {
     };
 
     setupRealtimeSubscription();
-  }, [toast]);
+  }, [handleRealtimeUpdate]);
+
+  // Fallback polling for files stuck at 70%
+  useEffect(() => {
+    const checkStuckFiles = async () => {
+      const stuckFiles = processingFiles.filter(
+        f => f.progress === 70 && f.status === 'processing' && f.statementId
+      );
+
+      if (stuckFiles.length === 0) return;
+
+      console.log('Checking stuck files:', stuckFiles);
+
+      for (const file of stuckFiles) {
+        const { data: statement } = await supabase
+          .from('bank_statements')
+          .select('status')
+          .eq('id', file.statementId)
+          .single();
+
+        if (statement) {
+          console.log(`Polling result for ${file.fileName}:`, statement.status);
+          
+          if (statement.status === 'completed') {
+            setProcessingFiles(prev => prev.map(f => 
+              f.id === file.id 
+                ? { ...f, progress: 100, status: 'completed' as const }
+                : f
+            ));
+            
+            toast({
+              title: "Processing complete",
+              description: `${file.fileName} has been processed successfully.`,
+            });
+          } else if (statement.status === 'failed') {
+            setProcessingFiles(prev => prev.map(f => 
+              f.id === file.id 
+                ? { ...f, progress: 100, status: 'failed' as const, error: 'Processing failed' }
+                : f
+            ));
+            
+            toast({
+              title: "Processing failed",
+              description: `Failed to process ${file.fileName}`,
+              variant: "destructive",
+            });
+          }
+        }
+      }
+    };
+
+    // Poll every 2 seconds if there are processing files
+    if (processingFiles.some(f => f.status === 'processing')) {
+      pollingIntervalRef.current = setInterval(checkStuckFiles, 2000);
+    } else {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [processingFiles, toast]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
