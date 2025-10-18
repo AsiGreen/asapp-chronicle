@@ -239,48 +239,6 @@ export type Database = {
         }
         Relationships: []
       }
-      statements: {
-        Row: {
-          card_number: string
-          card_type: string | null
-          created_at: string
-          file_url: string
-          id: string
-          processed_at: string | null
-          statement_date: string
-          status: string
-          total_amount: number
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          card_number: string
-          card_type?: string | null
-          created_at?: string
-          file_url: string
-          id?: string
-          processed_at?: string | null
-          statement_date: string
-          status?: string
-          total_amount?: number
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          card_number?: string
-          card_type?: string | null
-          created_at?: string
-          file_url?: string
-          id?: string
-          processed_at?: string | null
-          statement_date?: string
-          status?: string
-          total_amount?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       transactions: {
         Row: {
           amount_ils: number
@@ -297,7 +255,6 @@ export type Database = {
           original_currency: string
           payment_date: string | null
           source_bank: string | null
-          statement_id: string | null
           transaction_date: string
           transaction_direction: string | null
           transaction_type: string
@@ -319,7 +276,6 @@ export type Database = {
           original_currency: string
           payment_date?: string | null
           source_bank?: string | null
-          statement_id?: string | null
           transaction_date: string
           transaction_direction?: string | null
           transaction_type?: string
@@ -341,7 +297,6 @@ export type Database = {
           original_currency?: string
           payment_date?: string | null
           source_bank?: string | null
-          statement_id?: string | null
           transaction_date?: string
           transaction_direction?: string | null
           transaction_type?: string
@@ -354,13 +309,6 @@ export type Database = {
             columns: ["bank_statement_id"]
             isOneToOne: false
             referencedRelation: "bank_statements"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "transactions_statement_id_fkey"
-            columns: ["statement_id"]
-            isOneToOne: false
-            referencedRelation: "statements"
             referencedColumns: ["id"]
           },
         ]
