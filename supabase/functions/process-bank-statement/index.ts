@@ -160,25 +160,25 @@ async function parseCSV(content: string, bankName: string, lovableApiKey: string
   const headers = lines[0].split(',').map(h => h.trim());
   console.log('CSV Headers:', headers);
 
-  // Auto-detect CSV structure
+  // Auto-detect CSV structure - match exact One Zero headers
   let dateCol = -1, descCol = -1, amountCol = -1, currencyCol = -1, directionCol = -1;
   
-  // Find column indexes by checking header names
+  // Find column indexes by checking exact header names for One Zero bank
   headers.forEach((header, idx) => {
-    const lower = header.toLowerCase();
-    if (lower.includes('date') || lower.includes('תאריך')) dateCol = idx;
-    if (lower.includes('description') || lower.includes('תיאור') || lower.includes('פעולה')) descCol = idx;
-    if (lower.includes('amount') || lower.includes('סכום') || lower.includes('זכות') || lower.includes('חובה')) amountCol = idx;
-    if (lower.includes('currency') || lower.includes('מטבע')) currencyCol = idx;
-    if (lower.includes('type') || lower.includes('סוג')) directionCol = idx;
+    // Match "תאריך תנועה" (Transaction Date) specifically, not "תאריך ערך"
+    if (header === 'תאריך תנועה' || header.toLowerCase().includes('transaction date')) dateCol = idx;
+    if (header === 'תיאור' || header.toLowerCase().includes('description')) descCol = idx;
+    if (header === 'סכום פעולה' || header.toLowerCase().includes('amount')) amountCol = idx;
+    if (header === 'מטבע' || header.toLowerCase().includes('currency')) currencyCol = idx;
+    if (header === 'חיוב/זיכוי') directionCol = idx;
   });
 
   // Fallback to typical One Zero column positions if not found in headers
-  if (dateCol === -1) dateCol = 0;
-  if (descCol === -1) descCol = 3;
-  if (amountCol === -1) amountCol = 4;
-  if (currencyCol === -1) currencyCol = 5;
-  if (directionCol === -1) directionCol = 6;
+  if (dateCol === -1) dateCol = 0;  // First column - תאריך תנועה
+  if (descCol === -1) descCol = 3;  // Fourth column - תיאור
+  if (amountCol === -1) amountCol = 4;  // Fifth column - סכום פעולה
+  if (currencyCol === -1) currencyCol = 5;  // Sixth column - מטבע
+  if (directionCol === -1) directionCol = 6;  // Seventh column - חיוב/זיכוי
 
   console.log('Detected columns:', { dateCol, descCol, amountCol, currencyCol, directionCol });
 
@@ -252,8 +252,19 @@ function convertDate(dateStr: string): string {
 }
 
 function cleanMerchant(description: string): string {
-  // Remove Hebrew RTL marks and clean up
-  return description.replace(/[\u200F\u200E]/g, '').trim();
+  // Remove RTL marks and extra whitespace
+  let cleaned = description.replace(/[\u200F\u200E]/g, '').trim();
+  
+  // Extract meaningful part (text after the last slash)
+  const parts = cleaned.split('/');
+  if (parts.length > 1) {
+    cleaned = parts[parts.length - 1].trim();
+  }
+  
+  // Remove leading reference numbers (e.g., "117-2712169")
+  cleaned = cleaned.replace(/^[\d\-\s]+/, '').trim();
+  
+  return cleaned || 'Unknown Merchant';
 }
 
 function guessCategory(description: string, direction: string): string {
