@@ -138,26 +138,78 @@ serve(async (req) => {
 });
 
 async function parseCSV(content: string, bankName: string, lovableApiKey: string | undefined): Promise<any[]> {
-  console.log('Parsing CSV for bank:', bankName);
+  console.log('=== CSV PARSING START ===');
+  console.log('Bank name:', bankName);
+  console.log('CSV content length:', content.length, 'bytes');
   
   const lines = content.split('\n').filter(line => line.trim());
-  if (lines.length < 2) return [];
+  console.log('Total lines:', lines.length);
+  
+  if (lines.length < 2) {
+    console.log('ERROR: CSV has less than 2 lines');
+    return [];
+  }
+
+  // Log first few lines for debugging
+  console.log('First 3 lines of CSV:');
+  lines.slice(0, 3).forEach((line, idx) => {
+    console.log(`Line ${idx}:`, line.substring(0, 200));
+  });
 
   const transactions: any[] = [];
+  const headers = lines[0].split(',').map(h => h.trim());
+  console.log('CSV Headers:', headers);
 
-  // Parse One Zero CSV format
-  if (bankName === 'One Zero') {
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      const parts = line.split(',');
+  // Auto-detect CSV structure
+  let dateCol = -1, descCol = -1, amountCol = -1, currencyCol = -1, directionCol = -1;
+  
+  // Find column indexes by checking header names
+  headers.forEach((header, idx) => {
+    const lower = header.toLowerCase();
+    if (lower.includes('date') || lower.includes('תאריך')) dateCol = idx;
+    if (lower.includes('description') || lower.includes('תיאור') || lower.includes('פעולה')) descCol = idx;
+    if (lower.includes('amount') || lower.includes('סכום') || lower.includes('זכות') || lower.includes('חובה')) amountCol = idx;
+    if (lower.includes('currency') || lower.includes('מטבע')) currencyCol = idx;
+    if (lower.includes('type') || lower.includes('סוג')) directionCol = idx;
+  });
+
+  // Fallback to typical One Zero column positions if not found in headers
+  if (dateCol === -1) dateCol = 0;
+  if (descCol === -1) descCol = 3;
+  if (amountCol === -1) amountCol = 4;
+  if (currencyCol === -1) currencyCol = 5;
+  if (directionCol === -1) directionCol = 6;
+
+  console.log('Detected columns:', { dateCol, descCol, amountCol, currencyCol, directionCol });
+
+  // Parse data rows
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    const parts = line.split(',');
+    
+    if (parts.length < 4) {
+      console.log(`Skipping line ${i}: insufficient columns (${parts.length})`);
+      continue;
+    }
+
+    try {
+      const date = parts[dateCol]?.trim() || '';
+      const description = parts[descCol]?.trim() || 'Unknown';
+      const amountStr = parts[amountCol]?.trim() || '0';
+      const amount = parseFloat(amountStr.replace(/[^\d.-]/g, ''));
+      const currency = parts[currencyCol]?.trim() || 'ILS';
+      const directionStr = parts[directionCol]?.trim() || '';
       
-      if (parts.length < 7) continue;
+      // Determine direction: "זיכוי" = income, "חיוב" = expense
+      let direction: 'income' | 'expense' = 'expense';
+      if (directionStr === 'זיכוי' || directionStr.toLowerCase().includes('credit')) {
+        direction = 'income';
+      }
 
-      const date = parts[0].trim();
-      const description = parts[3].trim();
-      const amount = parseFloat(parts[4].replace(/[^\d.-]/g, ''));
-      const currency = parts[5].trim();
-      const direction = parts[6].trim() === 'זיכוי' ? 'income' : 'expense';
+      if (isNaN(amount)) {
+        console.log(`Skipping line ${i}: invalid amount "${amountStr}"`);
+        continue;
+      }
 
       transactions.push({
         date: convertDate(date),
@@ -169,7 +221,15 @@ async function parseCSV(content: string, bankName: string, lovableApiKey: string
         type: 'regular',
         description,
       });
+    } catch (error) {
+      console.error(`Error parsing line ${i}:`, error);
     }
+  }
+
+  console.log('=== CSV PARSING COMPLETE ===');
+  console.log('Extracted transactions:', transactions.length);
+  if (transactions.length > 0) {
+    console.log('First transaction:', JSON.stringify(transactions[0]));
   }
 
   return transactions;

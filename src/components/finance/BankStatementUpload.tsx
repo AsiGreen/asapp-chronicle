@@ -213,13 +213,24 @@ export const BankStatementUpload = () => {
   };
 
   const detectBankName = (fileName: string): string => {
-    if (fileName.includes('One_Zero') || fileName.includes('OneZero')) {
+    const lower = fileName.toLowerCase();
+    
+    // Check for One Zero bank patterns
+    if (lower.includes('one') && lower.includes('zero')) {
       return 'One Zero';
     }
-    if (fileName.includes('Millennium') || fileName.includes('BCP')) {
+    if (lower.includes('onezero') || lower.includes('one_zero')) {
+      return 'One Zero';
+    }
+    
+    // Check for Millennium BCP
+    if (lower.includes('millennium') || lower.includes('bcp')) {
       return 'Millennium BCP';
     }
-    return 'Unknown Bank';
+    
+    // Default to One Zero for now (most common case)
+    // This ensures CSV parsing will work even if bank name isn't detected from filename
+    return 'One Zero';
   };
 
   const removeFile = (id: string) => {
