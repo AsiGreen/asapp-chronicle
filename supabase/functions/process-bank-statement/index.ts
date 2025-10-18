@@ -30,18 +30,33 @@ serve(async (req) => {
 
     if (statementError) throw statementError;
 
-    // Download file
-    const fileResponse = await fetch(fileUrl);
-    if (!fileResponse.ok) throw new Error('Failed to download file');
+    // Extract file path from URL (remove base URL part)
+    const urlParts = fileUrl.split('/bank-statements/');
+    if (urlParts.length < 2) throw new Error('Invalid file URL format');
+    const filePath = urlParts[1];
     
-    const fileContent = await fileResponse.text();
+    console.log('Downloading file from storage:', filePath);
+    
+    // Download file using Supabase Storage client (authenticated)
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from('bank-statements')
+      .download(filePath);
+
+    if (downloadError) throw new Error(`Failed to download file: ${downloadError.message}`);
+    if (!fileData) throw new Error('No file data received');
+
+    let fileContent: string;
     let transactions: any[] = [];
 
     // Parse based on file type
     if (statement.file_type === 'csv') {
+      fileContent = await fileData.text();
       transactions = await parseCSV(fileContent, statement.bank_name, lovableApiKey);
     } else {
-      // For PDF, we would use pdfjs-serverless here
+      // For PDF, convert to base64
+      const arrayBuffer = await fileData.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      fileContent = btoa(String.fromCharCode(...uint8Array));
       transactions = await parsePDF(fileContent, statement.bank_name, lovableApiKey);
     }
 
