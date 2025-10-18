@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, FileText, X, Loader2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Upload, FileText, X, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { MAX_FILE_SIZE } from "@/constants/finance";
@@ -14,10 +16,82 @@ interface FileUpload {
   id: string;
 }
 
+interface ProcessingFile {
+  id: string;
+  fileName: string;
+  bankName: string;
+  progress: number;
+  status: 'uploading' | 'processing' | 'completed' | 'failed';
+  statementId?: string;
+  error?: string;
+}
+
 export const BankStatementUpload = () => {
   const [files, setFiles] = useState<FileUpload[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [processingFiles, setProcessingFiles] = useState<ProcessingFile[]>([]);
   const { toast } = useToast();
+
+  // Subscribe to real-time updates for bank statement processing
+  useEffect(() => {
+    const setupRealtimeSubscription = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const channel = supabase
+        .channel('bank-statements-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'bank_statements',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload: any) => {
+            const updatedStatement = payload.new;
+            
+            setProcessingFiles(prev => prev.map(file => {
+              if (file.statementId === updatedStatement.id) {
+                if (updatedStatement.status === 'completed') {
+                  toast({
+                    title: "Processing complete",
+                    description: `${file.fileName} has been processed successfully.`,
+                  });
+                  
+                  return {
+                    ...file,
+                    progress: 100,
+                    status: 'completed' as const
+                  };
+                } else if (updatedStatement.status === 'failed') {
+                  toast({
+                    title: "Processing failed",
+                    description: `Failed to process ${file.fileName}`,
+                    variant: "destructive",
+                  });
+                  
+                  return {
+                    ...file,
+                    progress: 100,
+                    status: 'failed' as const,
+                    error: 'Processing failed'
+                  };
+                }
+              }
+              return file;
+            }));
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    setupRealtimeSubscription();
+  }, [toast]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
@@ -88,13 +162,23 @@ export const BankStatementUpload = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Initialize processing files
+      const newProcessingFiles: ProcessingFile[] = files.map(f => ({
+        id: f.id,
+        fileName: f.file.name,
+        bankName: f.bankName,
+        progress: 0,
+        status: 'uploading' as const,
+      }));
+      setProcessingFiles(prev => [...prev, ...newProcessingFiles]);
+
       for (let i = 0; i < files.length; i++) {
         const fileUpload = files[i];
         
-        toast({
-          title: `Processing ${i + 1} of ${files.length}`,
-          description: `Uploading ${fileUpload.file.name}...`,
-        });
+        // Update to uploading (0-40%)
+        setProcessingFiles(prev => prev.map(f => 
+          f.id === fileUpload.id ? { ...f, progress: 10 } : f
+        ));
 
         const fileExt = fileUpload.file.name.split('.').pop();
         const filePath = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -103,7 +187,19 @@ export const BankStatementUpload = () => {
           .from('bank-statements')
           .upload(filePath, fileUpload.file);
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          setProcessingFiles(prev => prev.map(f => 
+            f.id === fileUpload.id 
+              ? { ...f, progress: 100, status: 'failed' as const, error: uploadError.message } 
+              : f
+          ));
+          throw uploadError;
+        }
+
+        // Upload complete (40%)
+        setProcessingFiles(prev => prev.map(f => 
+          f.id === fileUpload.id ? { ...f, progress: 40 } : f
+        ));
 
         const { data: { publicUrl } } = supabase.storage
           .from('bank-statements')
@@ -124,18 +220,44 @@ export const BankStatementUpload = () => {
           .select()
           .single();
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          setProcessingFiles(prev => prev.map(f => 
+            f.id === fileUpload.id 
+              ? { ...f, progress: 100, status: 'failed' as const, error: insertError.message } 
+              : f
+          ));
+          throw insertError;
+        }
+
+        // Database record created (50%), now processing
+        setProcessingFiles(prev => prev.map(f => 
+          f.id === fileUpload.id 
+            ? { ...f, progress: 50, status: 'processing' as const, statementId: statement.id } 
+            : f
+        ));
 
         const { error: functionError } = await supabase.functions.invoke('process-bank-statement', {
           body: { statementId: statement.id, fileUrl: publicUrl },
         });
 
-        if (functionError) throw functionError;
+        if (functionError) {
+          setProcessingFiles(prev => prev.map(f => 
+            f.id === fileUpload.id 
+              ? { ...f, progress: 100, status: 'failed' as const, error: functionError.message } 
+              : f
+          ));
+          throw functionError;
+        }
+
+        // Edge function invoked, animating progress (60-99%)
+        setProcessingFiles(prev => prev.map(f => 
+          f.id === fileUpload.id ? { ...f, progress: 70 } : f
+        ));
       }
 
       toast({
         title: "Upload complete",
-        description: `${files.length} statement(s) are being processed. This may take a few minutes.`,
+        description: `${files.length} statement(s) are being processed. Watch the progress below.`,
       });
 
       setFiles([]);
@@ -148,6 +270,23 @@ export const BankStatementUpload = () => {
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const dismissProcessingFile = (id: string) => {
+    setProcessingFiles(prev => prev.filter(f => f.id !== id));
+  };
+
+  const getStatusBadge = (status: ProcessingFile['status']) => {
+    switch (status) {
+      case 'uploading':
+        return <Badge variant="secondary" className="gap-1"><Loader2 className="w-3 h-3 animate-spin" />Uploading</Badge>;
+      case 'processing':
+        return <Badge variant="secondary" className="gap-1"><Loader2 className="w-3 h-3 animate-spin" />Processing</Badge>;
+      case 'completed':
+        return <Badge variant="default" className="gap-1 bg-green-600"><CheckCircle className="w-3 h-3" />Completed</Badge>;
+      case 'failed':
+        return <Badge variant="destructive" className="gap-1"><XCircle className="w-3 h-3" />Failed</Badge>;
     }
   };
 
@@ -212,6 +351,49 @@ export const BankStatementUpload = () => {
                   >
                     <X className="w-4 h-4" />
                   </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {processingFiles.length > 0 && (
+          <div className="space-y-2">
+            <Label>Processing Queue:</Label>
+            {processingFiles.map((processingFile) => (
+              <Card key={processingFile.id} className="p-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <FileText className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{processingFile.fileName}</p>
+                        <p className="text-xs text-muted-foreground">{processingFile.bankName}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(processingFile.status)}
+                      {(processingFile.status === 'completed' || processingFile.status === 'failed') && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => dismissProcessingFile(processingFile.id)}
+                          className="h-8 w-8"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Progress value={processingFile.progress} className="h-2" />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{processingFile.progress}%</span>
+                      {processingFile.error && (
+                        <span className="text-destructive">{processingFile.error}</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </Card>
             ))}
