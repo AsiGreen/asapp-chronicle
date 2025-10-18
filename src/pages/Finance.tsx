@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigation } from "@/components/Navigation";
-import { StatementUpload } from "@/components/finance/StatementUpload";
 import { TransactionsTable } from "@/components/finance/TransactionsTable";
-import { FinanceDashboard } from "@/components/finance/FinanceDashboard";
 import { BankStatementUpload } from "@/components/finance/BankStatementUpload";
 import { IncomeOutcomeReport } from "@/components/finance/IncomeOutcomeReport";
 import { FinancialInsights } from "@/components/finance/FinancialInsights";
@@ -81,20 +79,13 @@ const Finance = () => {
           </Button>
         </div>
 
-        <Tabs defaultValue="credit-cards" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="credit-cards">Credit Cards</TabsTrigger>
-            <TabsTrigger value="bank-statements">Bank Statements</TabsTrigger>
+        <Tabs defaultValue="upload" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="upload">Upload & Transactions</TabsTrigger>
             <TabsTrigger value="report">Income/Outcome Report</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="credit-cards" className="space-y-8">
-            <StatementUpload />
-            <FinanceDashboard />
-            <TransactionsTable />
-          </TabsContent>
-
-          <TabsContent value="bank-statements" className="space-y-8">
+          <TabsContent value="upload" className="space-y-8">
             <BankStatementUpload />
             <TransactionsTable />
           </TabsContent>
