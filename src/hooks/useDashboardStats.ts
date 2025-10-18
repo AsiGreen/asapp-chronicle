@@ -51,6 +51,9 @@ export const useDashboardStats = () => {
         return;
       }
 
+      // Cast transactions to proper type
+      const typedTransactions = transactions as Transaction[];
+
       // Fetch categories for colors
       const { data: categories } = await supabase
         .from("categories")
@@ -59,11 +62,11 @@ export const useDashboardStats = () => {
       const categoryColorMap = new Map(categories?.map(c => [c.name, c.color]) || []);
 
       // Calculate all stats
-      const totalSpending = calculateTotalSpending(transactions);
-      const transactionCount = transactions.length;
-      const averageSpending = calculateAverageSpending(transactions);
-      const categoryData = groupByCategory(transactions, categoryColorMap);
-      const monthlyData = groupByMonth(transactions);
+      const totalSpending = calculateTotalSpending(typedTransactions);
+      const transactionCount = typedTransactions.length;
+      const averageSpending = calculateAverageSpending(typedTransactions);
+      const categoryData = groupByCategory(typedTransactions, categoryColorMap);
+      const monthlyData = groupByMonth(typedTransactions);
       const topCategory = getTopCategory(categoryData);
 
       setStats({

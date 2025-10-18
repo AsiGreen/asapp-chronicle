@@ -16,6 +16,9 @@ export interface Transaction {
   user_id: string;
   created_at?: string;
   updated_at?: string;
+  transaction_direction?: 'income' | 'expense';
+  bank_statement_id?: string;
+  source_bank?: string;
 }
 
 export interface Category {
@@ -64,4 +67,48 @@ export interface MonthlyData {
 export interface FilterOptions {
   categories: string[];
   currencies: string[];
+}
+
+export interface BankStatement {
+  id: string;
+  user_id: string;
+  bank_name: string;
+  file_url: string;
+  file_type: 'csv' | 'pdf';
+  statement_date_from: string;
+  statement_date_to: string;
+  currency: string;
+  total_income: number;
+  total_expenses: number;
+  net_cashflow: number;
+  status: 'processing' | 'completed' | 'failed';
+  processed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IncomeOutcomeStats {
+  totalIncome: number;
+  totalExpenses: number;
+  netCashflow: number;
+  savingsRate: number;
+  incomeByCategory: CategoryTotal[];
+  expensesByCategory: CategoryTotal[];
+  monthlyTrends: MonthlyIncomeExpense[];
+  topIncomeSources: TopSource[];
+  topExpenseCategories: CategoryTotal[];
+}
+
+export interface MonthlyIncomeExpense {
+  month: string;
+  income: number;
+  expenses: number;
+  net: number;
+}
+
+export interface TopSource {
+  name: string;
+  amount: number;
+  count: number;
+  category: string;
 }

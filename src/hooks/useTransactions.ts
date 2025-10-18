@@ -45,7 +45,7 @@ export const useTransactions = (filters: FilterState) => {
         .limit(DEFAULT_TRANSACTION_LIMIT);
 
       if (fetchError) throw fetchError;
-      setTransactions(data || []);
+      setTransactions((data || []) as Transaction[]);
       setError(null);
     } catch (err) {
       setError(err as Error);

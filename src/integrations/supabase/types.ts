@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      bank_statements: {
+        Row: {
+          bank_name: string
+          created_at: string
+          currency: string
+          file_type: string
+          file_url: string
+          id: string
+          net_cashflow: number | null
+          processed_at: string | null
+          statement_date_from: string
+          statement_date_to: string
+          status: string
+          total_expenses: number | null
+          total_income: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bank_name: string
+          created_at?: string
+          currency?: string
+          file_type: string
+          file_url: string
+          id?: string
+          net_cashflow?: number | null
+          processed_at?: string | null
+          statement_date_from: string
+          statement_date_to: string
+          status?: string
+          total_expenses?: number | null
+          total_income?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bank_name?: string
+          created_at?: string
+          currency?: string
+          file_type?: string
+          file_url?: string
+          id?: string
+          net_cashflow?: number | null
+          processed_at?: string | null
+          statement_date_from?: string
+          statement_date_to?: string
+          status?: string
+          total_expenses?: number | null
+          total_income?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           color: string
@@ -48,6 +102,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      income_categories: {
+        Row: {
+          color: string
+          created_at: string
+          icon: string
+          id: string
+          name: string
+        }
+        Insert: {
+          color: string
+          created_at?: string
+          icon: string
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       merchant_mappings: {
         Row: {
@@ -206,6 +284,7 @@ export type Database = {
       transactions: {
         Row: {
           amount_ils: number
+          bank_statement_id: string | null
           card_last_4: string | null
           category: string
           created_at: string
@@ -217,14 +296,17 @@ export type Database = {
           original_amount: number
           original_currency: string
           payment_date: string | null
+          source_bank: string | null
           statement_id: string | null
           transaction_date: string
+          transaction_direction: string | null
           transaction_type: string
           updated_at: string
           user_id: string
         }
         Insert: {
           amount_ils: number
+          bank_statement_id?: string | null
           card_last_4?: string | null
           category: string
           created_at?: string
@@ -236,14 +318,17 @@ export type Database = {
           original_amount: number
           original_currency: string
           payment_date?: string | null
+          source_bank?: string | null
           statement_id?: string | null
           transaction_date: string
+          transaction_direction?: string | null
           transaction_type?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           amount_ils?: number
+          bank_statement_id?: string | null
           card_last_4?: string | null
           category?: string
           created_at?: string
@@ -255,13 +340,22 @@ export type Database = {
           original_amount?: number
           original_currency?: string
           payment_date?: string | null
+          source_bank?: string | null
           statement_id?: string | null
           transaction_date?: string
+          transaction_direction?: string | null
           transaction_type?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "transactions_bank_statement_id_fkey"
+            columns: ["bank_statement_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statements"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "transactions_statement_id_fkey"
             columns: ["statement_id"]

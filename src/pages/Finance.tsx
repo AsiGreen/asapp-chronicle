@@ -5,7 +5,11 @@ import { Navigation } from "@/components/Navigation";
 import { StatementUpload } from "@/components/finance/StatementUpload";
 import { TransactionsTable } from "@/components/finance/TransactionsTable";
 import { FinanceDashboard } from "@/components/finance/FinanceDashboard";
+import { BankStatementUpload } from "@/components/finance/BankStatementUpload";
+import { IncomeOutcomeReport } from "@/components/finance/IncomeOutcomeReport";
+import { FinancialInsights } from "@/components/finance/FinancialInsights";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Session } from "@supabase/supabase-js";
@@ -77,11 +81,29 @@ const Finance = () => {
           </Button>
         </div>
 
-        <div className="space-y-8">
-          <StatementUpload />
-          <FinanceDashboard />
-          <TransactionsTable />
-        </div>
+        <Tabs defaultValue="credit-cards" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="credit-cards">Credit Cards</TabsTrigger>
+            <TabsTrigger value="bank-statements">Bank Statements</TabsTrigger>
+            <TabsTrigger value="report">Income/Outcome Report</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="credit-cards" className="space-y-8">
+            <StatementUpload />
+            <FinanceDashboard />
+            <TransactionsTable />
+          </TabsContent>
+
+          <TabsContent value="bank-statements" className="space-y-8">
+            <BankStatementUpload />
+            <TransactionsTable />
+          </TabsContent>
+
+          <TabsContent value="report" className="space-y-8">
+            <FinancialInsights />
+            <IncomeOutcomeReport />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
