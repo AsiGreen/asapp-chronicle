@@ -70,7 +70,7 @@ const Finance = () => {
           <div>
             <h1 className="text-4xl font-bold font-orbitron mb-2 text-glow">Finance Tracker</h1>
             <p className="text-muted-foreground">
-              Upload and analyze your credit card statements
+              Upload and analyze your bank statements
             </p>
           </div>
           <Button variant="outline" onClick={handleSignOut} className="gap-2">

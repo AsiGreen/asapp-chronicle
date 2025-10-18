@@ -151,7 +151,7 @@ const Index = () => {
             </div>
             <h2 className="text-4xl font-bold font-orbitron mb-4">Finance Tracker</h2>
             <p className="text-lg text-muted-foreground mb-8">
-              Upload and analyze your credit card statements with AI-powered transaction extraction. 
+              Upload and analyze your bank statements with AI-powered transaction extraction. 
               Categorize spending, track trends, and gain insights into your financial patterns.
             </p>
             <Button
